@@ -2,7 +2,12 @@ import jwt from 'jsonwebtoken'
 import { User } from '../models/User.js'
 
 export const generateToken = (res, userId) => {
-  const secret = process.env.JWT_SECRET || 'spendwise_default_jwt_secret_dev_2026'
+  const secret = process.env.JWT_SECRET
+
+  if (!secret) {
+    throw new Error('JWT_SECRET is not configured')
+  }
+
   const token = jwt.sign({ userId }, secret, {
     expiresIn: '30d',
   })
@@ -11,7 +16,7 @@ export const generateToken = (res, userId) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    maxAge: 30 * 24 * 60 * 60 * 1000,
   })
 
   return token
@@ -31,7 +36,11 @@ export const protect = async (req, res, next) => {
     let token = req.cookies?.spendwise_token
 
     // Also support Bearer token in Authorization header for API testing/tools
-    if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    if (
+      !token &&
+      req.headers.authorization &&
+      req.headers.authorization.startsWith('Bearer ')
+    ) {
       token = req.headers.authorization.split(' ')[1]
     }
 
@@ -42,7 +51,12 @@ export const protect = async (req, res, next) => {
       })
     }
 
-    const secret = process.env.JWT_SECRET || 'spendwise_default_jwt_secret_dev_2026'
+    const secret = process.env.JWT_SECRET
+
+    if (!secret) {
+      throw new Error('JWT_SECRET is not configured')
+    }
+
     const decoded = jwt.verify(token, secret)
 
     const user = await User.findById(decoded.userId).select('-password')
